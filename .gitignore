@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual Environment
+backend/.venv/
+
+# Database
+backend/db.sqlite3
+
+# Environment variables
+.env
+.env.*
+
+# VS Code
+.vscode/
+
+# Static and Media (development)
+backend/media/
+backend/static/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
