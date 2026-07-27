@@ -117,3 +117,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+
+# Application metadata
+APP_NAME = "SaaS ERP"
+
+APP_VERSION = "0.1.0"
