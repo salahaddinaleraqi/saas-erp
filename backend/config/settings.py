@@ -122,3 +122,7 @@ STATIC_URL = 'static/'
 APP_NAME = "SaaS ERP"
 
 APP_VERSION = "0.1.0"
+
+REST_FRAMEWORK = {
+    "EXCEPTION_HANDLER": "apps.core.api.exceptions.custom_exception_handler",
+}

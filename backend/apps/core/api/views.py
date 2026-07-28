@@ -11,13 +11,12 @@ class HealthCheckView(APIView):
     def get(self, request):
         return success_response(
             data={
-                "status": "healthy",
-                "service": settings.APP_NAME,
-                "version": settings.APP_VERSION,
+            "status": "healthy",
+            "service": settings.APP_NAME,
+            "version": settings.APP_VERSION,
             },
             message="Service is healthy",
         )
-
 
 class VersionView(APIView):
     """
