@@ -1,7 +1,7 @@
 from django.conf import settings
-from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from .responses import success_response
 
 class HealthCheckView(APIView):
     """
@@ -9,12 +9,13 @@ class HealthCheckView(APIView):
     """
 
     def get(self, request):
-        return Response(
-            {
+        return success_response(
+            data={
                 "status": "healthy",
                 "service": settings.APP_NAME,
                 "version": settings.APP_VERSION,
-            }
+            },
+            message="Service is healthy",
         )
 
 
@@ -24,9 +25,10 @@ class VersionView(APIView):
     """
 
     def get(self, request):
-        return Response(
-            {
-                "service": settings.APP_NAME,
-                "version": settings.APP_VERSION,
-            }
+        return success_response(
+            data={
+            "service": settings.APP_NAME,
+            "version": settings.APP_VERSION,
+            },
+            message="Version retrieved successfully",
         )
