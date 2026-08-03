@@ -31,3 +31,20 @@ class VersionView(APIView):
             },
             message="Version retrieved successfully",
         )
+class ApiRootView(APIView):
+    """
+    API root endpoint.
+    """
+
+    def get(self, request):
+        return success_response(
+            data={
+                "name": f"{settings.APP_NAME} API",
+                "version": settings.APP_VERSION,
+                "endpoints": {
+                    "health": "/api/health/",
+                    "version": "/api/version/",
+                },
+            },
+            message="API root",
+        )    
