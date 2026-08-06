@@ -56,3 +56,40 @@ class LogoutSerializer(serializers.Serializer):
         refresh_token = self.validated_data["refresh"]
         token = RefreshToken(refresh_token)
         token.blacklist()
+
+
+class CurrentUserSerializer(serializers.Serializer):
+    """
+    Serializer for the authenticated user's current context.
+    """
+
+    user = serializers.SerializerMethodField()
+    tenant = serializers.SerializerMethodField()
+    company = serializers.SerializerMethodField()
+
+    def get_user(self, request):
+        return UserSerializer(request.user).data
+
+    def get_tenant(self, request):
+        tenant = getattr(request, "tenant", None)
+
+        if tenant is None:
+            return None
+
+        return {
+            "id": str(tenant.id),
+            "name": tenant.name,
+            "slug": tenant.slug,
+        }
+
+    def get_company(self, request):
+        company = getattr(request, "company", None)
+
+        if company is None:
+            return None
+
+        return {
+            "id": str(company.id),
+            "name": company.name,
+            "code": company.code,
+        }

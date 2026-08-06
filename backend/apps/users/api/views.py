@@ -6,11 +6,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from apps.core.api.responses import success_response
+
 from apps.users.api.serializers import (
+    CurrentUserSerializer,
     LoginSerializer,
     LogoutSerializer,
     RefreshSerializer,
-    UserSerializer,
 )
 
 class LoginView(APIView):
@@ -36,9 +38,12 @@ class MeView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        serializer = UserSerializer(request.user)
+        serializer = CurrentUserSerializer(request)
 
-        return Response(serializer.data)
+        return success_response(
+            message="Current user retrieved successfully.",
+            data=serializer.data,
+        )      
 
 class RefreshView(TokenRefreshView):
     permission_classes = [AllowAny]

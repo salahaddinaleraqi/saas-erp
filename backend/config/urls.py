@@ -9,4 +9,7 @@ urlpatterns = [
 
     # Authentication APIs
     path("api/auth/", include("apps.users.api.urls")),
+
+    # Tenant APIs
+    path("api/tenant/", include("apps.tenants.api.urls")),
 ]
