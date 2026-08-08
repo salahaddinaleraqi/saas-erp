@@ -122,13 +122,13 @@ The `TenantContextMixin` integrates tenant context resolution into Django REST F
 Execution flow:
 
 Request
-    ↓
+    â†“
 JWT Authentication
-    ↓
+    â†“
 TenantContextMixin.initial()
-    ↓
+    â†“
 TenantContext.resolve()
-    ↓
+    â†“
 request.membership
 request.tenant
 request.company
@@ -148,17 +148,17 @@ Tenant context is resolved inside the DRF request lifecycle using `TenantContext
 Execution flow:
 
 HTTP Request
-    ↓
+    â†“
 JWT Authentication
-    ↓
+    â†“
 TenantContextMixin.initial()
-    ↓
+    â†“
 TenantContext.resolve()
-    ↓
+    â†“
 request.membership
 request.tenant
 request.company
-    ↓
+    â†“
 APIView
 
 ### Advantages
@@ -177,4 +177,3 @@ Reason:
 - Django middleware executes before DRF JWT authentication.
 - Therefore, `request.user` is not available for authenticated JWT requests.
 - Tenant resolution is now handled exclusively by `TenantContextMixin`.
-

@@ -208,3 +208,171 @@ Remove the obsolete middleware implementation.
 The project no longer depends on Django middleware for tenant resolution.
 
 ---
+
+---
+
+## Sprint 3 — Stage 3.5: Tenant-aware Permissions & Ownership Foundation
+
+**Status:** ✅ Completed
+
+### Objective
+
+Build the foundation required to ensure that tenant-aware APIs can verify the authenticated user's active tenant membership before granting access.
+
+---
+
+### Stage 3.5.1 — Tenant Permissions
+
+**Status:** ✅ Completed
+
+### Implementation
+
+* Created `apps/tenants/api/permissions.py`.
+* Introduced `IsTenantMember`.
+* The permission requires:
+
+  * An authenticated user.
+  * A resolved active Membership.
+  * A resolved active Tenant.
+* Designed the permission to be reusable across future tenant-aware APIs.
+* Tenant context is resolved before permission checks.
+
+### Result
+
+Tenant-aware APIs can now require a valid tenant membership context through a reusable DRF permission.
+
+---
+
+### Stage 3.5.2 — Tenant Utilities
+
+**Status:** ✅ Completed
+
+### Implementation
+
+* Created `apps/tenants/utils.py`.
+* Introduced:
+
+  * `get_current_tenant(request)`
+  * `get_current_membership(request)`
+* Utilities provide a consistent way to access the tenant context from the request.
+* Utilities read the existing request context and do not perform database queries.
+
+### Result
+
+Tenant and Membership context access is now standardized for API code.
+
+---
+
+### Stage 3.5.3 — Testing
+
+**Status:** ✅ Completed
+
+### Testing
+
+Implemented automated tests covering:
+
+* Tenant Context API.
+* Authentication requirements.
+* Active Membership requirements.
+* Active Tenant requirements.
+* Tenant utility functions.
+* Tenant context resolution.
+* Unauthenticated requests.
+* Request context isolation.
+
+### Test Results
+
+* Tenant API tests: **5**
+* Tenant Utility tests: **4**
+* Tenant Context tests: **6**
+* Total: **15**
+
+Full project test suite:
+
+```text
+Found 15 test(s).
+...............
+Ran 15 tests
+
+OK
+```
+
+### Result
+
+Tenant context and tenant-aware permission foundations are covered by automated tests, and the complete project test suite passes successfully.
+
+---
+
+### Stage 3.5.4 — Documentation
+
+**Status:** ✅ Completed
+
+### Documentation Updated
+
+* Updated `docs/modules/TENANTS.md`.
+* Documented:
+
+  * Tenant Context.
+  * `TenantContextMixin`.
+  * `IsTenantMember`.
+  * Tenant utilities.
+  * Current membership resolution.
+  * Current architectural limitations.
+  * Tenant Context testing.
+
+### Result
+
+The Tenant module documentation now reflects the current implementation.
+
+---
+
+### Stage 3.5.5 — Restore Point
+
+**Status:** ⏳ Pending
+
+### Objective
+
+Create a clean restore point after completing Stage 3.5.
+
+### Planned Actions
+
+* Review project changes.
+* Run the complete test suite.
+* Review `git status`.
+* Review `git diff`.
+* Create Git commit.
+* Push the commit to GitHub.
+
+---
+
+### Current Tenant Architecture
+
+The current tenant-aware request flow is:
+
+```text
+HTTP Request
+↓
+JWT Authentication
+↓
+TenantContextMixin.perform_authentication()
+↓
+TenantContext.resolve()
+↓
+request.membership
+request.tenant
+request.company
+↓
+IsTenantMember
+↓
+APIView
+```
+
+### Current Limitation
+
+The data model supports users belonging to multiple tenants, but tenant switching has not yet been implemented.
+
+The current `get_current_membership()` implementation selects the first active Membership for the authenticated user whose Tenant is also active.
+
+Explicit tenant selection and tenant switching will be implemented in a future stage.
+
+---
