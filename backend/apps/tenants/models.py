@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from apps.tenants.managers import TenantAwareManager
+
 class Tenant(models.Model):
     """
     Represents a tenant (subscription/workspace) in the SaaS ERP system.
@@ -52,6 +54,7 @@ class Company(models.Model):
     A tenant can have one or more companies.
     """
 
+    objects = TenantAwareManager()
     id = models.UUIDField(
         primary_key=True,
         default=uuid.uuid4,
