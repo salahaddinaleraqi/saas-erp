@@ -328,7 +328,7 @@ The Tenant module documentation now reflects the current implementation.
 
 ### Stage 3.5.5 — Restore Point
 
-**Status:** ⏳ Pending
+**Status:** ✅ Completed
 
 ### Objective
 
@@ -376,3 +376,436 @@ The current `get_current_membership()` implementation selects the first active M
 Explicit tenant selection and tenant switching will be implemented in a future stage.
 
 ---
+
+---
+
+## Sprint 3 — Stage 3.6: Multi-Tenant Selection & Isolation
+
+---
+
+### Stage 3.6.1 — Tenant-aware Membership Resolution
+
+**Status:** ✅ Completed
+
+### Objective
+
+Update tenant membership resolution to correctly support users who belong to multiple tenants.
+
+### Implementation
+
+Updated:
+
+* `apps/tenants/services.py`
+* `apps/tenants/context.py`
+
+Updated `get_current_membership()` behavior:
+
+* Only active memberships are considered.
+* Only active tenants are considered.
+* If the authenticated user has exactly one active membership, it is selected automatically.
+* If the authenticated user has multiple active memberships, no tenant is selected implicitly.
+* If there is no valid active membership, the result is `None`.
+
+This prevents the application from implicitly selecting an arbitrary tenant for users who belong to multiple tenants.
+
+### Result
+
+Tenant selection is now deterministic and does not depend on database ordering when multiple active memberships exist.
+
+---
+
+### Stage 3.6.2 — Tenant-aware Managers
+
+**Status:** ✅ Completed
+
+### Objective
+
+Introduce tenant-aware data access to ensure that tenant-owned records are queried within the resolved tenant context.
+
+### Implementation
+
+Tenant-aware managers were introduced as part of the tenant isolation foundation.
+
+The implementation ensures that tenant-owned data can be restricted to the current tenant instead of relying on API views to manually apply tenant filters.
+
+### Result
+
+Tenant-aware data access is now part of the application architecture and provides a foundation for enforcing tenant isolation across tenant-owned resources.
+
+---
+
+### Stage 3.6.3 — Enforce Tenant Isolation in Company API
+
+**Status:** ✅ Completed
+
+### Objective
+
+Enforce tenant isolation at the Company API level.
+
+### Implementation
+
+The Company API was updated to operate within the resolved tenant context.
+
+The API now ensures that:
+
+* Users can only list companies belonging to the current tenant.
+* Users cannot retrieve companies belonging to another tenant.
+* Users cannot update companies belonging to another tenant.
+* Users cannot delete companies belonging to another tenant.
+* Newly created companies are assigned to the current tenant.
+* Client-provided tenant information cannot override the server-resolved tenant.
+
+### Testing
+
+Extended:
+
+* `apps/tenants/tests/test_company_api.py`
+
+Tests cover:
+
+* Tenant-isolated company listing.
+* Cross-tenant company access.
+* Company creation within the current tenant.
+* Protection against client-side tenant override.
+* Tenant-isolated update operations.
+* Tenant-isolated delete operations.
+
+### Result
+
+The Company API now enforces tenant isolation and prevents cross-tenant data access through the API.
+
+---
+
+### Stage 3.6.4 — Explicit Tenant Selection
+
+**Status:** ✅ Completed
+
+### Objective
+
+Allow authenticated users who belong to multiple tenants to explicitly select the tenant for the current API request.
+
+### Implementation
+
+Updated:
+
+* `apps/tenants/api/mixins.py`
+* `apps/tenants/context.py`
+* `apps/tenants/services.py`
+
+Introduced:
+
+```text
+X-Tenant-ID
+```
+
+The `TenantContextMixin` reads the tenant identifier from the HTTP request and stores it as:
+
+```text
+request.tenant_id
+```
+
+When `request.tenant_id` is available, `TenantContext` resolves the membership using:
+
+```text
+get_membership_for_tenant(user, tenant_id)
+```
+
+The selected tenant is accepted only when:
+
+* The user is authenticated.
+* The user has an active membership in the selected tenant.
+* The selected tenant is active.
+
+If no tenant is explicitly selected, the context uses:
+
+```text
+get_current_membership(user)
+```
+
+This automatically resolves the tenant only when the user has exactly one active membership.
+
+### Tenant Selection Behavior
+
+#### Single Active Tenant
+
+```text
+Authenticated User
+        ↓
+One Active Membership
+        ↓
+get_current_membership()
+        ↓
+Tenant Context Resolved
+```
+
+#### Multiple Active Tenants
+
+```text
+Authenticated User
+        ↓
+Multiple Active Memberships
+        ↓
+No X-Tenant-ID
+        ↓
+No Tenant Context
+        ↓
+Tenant Membership Permission Denied
+```
+
+The client must explicitly select a tenant:
+
+```text
+X-Tenant-ID: <tenant-id>
+```
+
+#### Explicit Tenant Selection
+
+```text
+Authenticated User
+        ↓
+X-Tenant-ID
+        ↓
+get_membership_for_tenant()
+        ↓
+Active Membership?
+        ↓
+Yes → Tenant Context Resolved
+No  → Access Denied
+```
+
+### Security Rules
+
+The following cases are rejected:
+
+* Selecting a tenant where the user has no membership.
+* Selecting an inactive tenant.
+* Selecting a nonexistent tenant.
+* Selecting a tenant using an inactive membership.
+
+### Testing
+
+Extended:
+
+* `apps/tenants/tests/test_context.py`
+* `apps/tenants/tests/test_api.py`
+* `apps/tenants/tests/test_company_api.py`
+
+Tests cover:
+
+* Multiple active memberships do not result in implicit tenant selection.
+* Explicit tenant selection.
+* Tenant selection without membership.
+* Inactive tenant selection.
+* Nonexistent tenant selection.
+* Company API access using an explicitly selected tenant.
+* Cross-tenant company isolation.
+
+### Test Result
+
+Tenant test suite:
+
+```text
+python manage.py test apps.tenants.tests
+```
+
+Result:
+
+```text
+Found 39 test(s).
+
+Ran 39 tests
+
+OK
+```
+
+### Result
+
+The application now supports explicit, request-scoped tenant selection while preventing users from accessing tenants for which they do not have an active membership.
+
+---
+
+## Current Tenant Architecture
+
+The current tenant-aware request flow is:
+
+```text
+HTTP Request
+        ↓
+JWT Authentication
+        ↓
+TenantContextMixin.perform_authentication()
+        ↓
+Read X-Tenant-ID
+        ↓
+request.tenant_id
+        ↓
+TenantContext.resolve()
+        ↓
+┌─────────────────────────────────────────┐
+│ X-Tenant-ID provided?                   │
+│                                         │
+│ YES → get_membership_for_tenant()       │
+│ NO  → get_current_membership()          │
+└─────────────────────────────────────────┘
+        ↓
+request.membership
+request.tenant
+request.company
+        ↓
+IsTenantMember
+        ↓
+APIView / ViewSet
+```
+
+---
+
+## Current Tenant Selection Rules
+
+The current rules are:
+
+1. An authenticated user with exactly one active membership has that tenant selected automatically.
+2. An authenticated user with multiple active memberships does not have a tenant selected implicitly.
+3. A user with multiple tenants must provide `X-Tenant-ID` to select the tenant for the request.
+4. The selected tenant must be active.
+5. The authenticated user must have an active membership in the selected tenant.
+6. Invalid or unauthorized tenant selections result in no resolved tenant context and are rejected by tenant-aware permissions.
+
+---
+
+## Current Tenant Isolation
+
+Tenant-owned APIs operate against the resolved tenant context.
+
+For the Company API:
+
+```text
+Resolved Tenant
+        ↓
+Tenant-aware Query
+        ↓
+Only Companies belonging to that Tenant
+```
+
+The client cannot override the tenant assigned to a newly created Company.
+
+Cross-tenant reads, updates, and deletes are rejected.
+
+---
+
+## Restore Point
+
+**Status:** ✅ Completed
+
+After completing Stage 3.6.4:
+
+* Tenant tests pass successfully.
+* `git diff --check` passes.
+* Changes were committed.
+* Changes were pushed successfully to GitHub.
+* Working tree is clean.
+
+Git commit:
+
+```text
+74293bb Sprint 3.6.4 - Add explicit tenant selection
+```
+
+Commit message:
+
+```text
+Sprint 3.6.4 - Add explicit tenant selection
+```
+
+The project is now ready to proceed to the next development stage.
+
+---
+
+---
+
+## Sprint 3 — Stage 3.6.5: Tenant Isolation in Company API
+
+**Status:** ✅ Completed
+
+### Objective
+
+Ensure that Company APIs are strictly isolated by the resolved tenant context.
+
+### Implementation
+
+Updated:
+
+- `apps/tenants/api/views.py`
+- `apps/tenants/api/serializers.py`
+- `apps/tenants/api/mixins.py`
+- Tenant-aware Company API implementation
+
+Company API behavior now ensures that:
+
+- Company listing is restricted to the current tenant.
+- A company belonging to another tenant cannot be retrieved.
+- A company belonging to another tenant cannot be updated.
+- A company belonging to another tenant cannot be deleted.
+- New companies are automatically assigned to the current tenant.
+- Client-provided tenant values cannot override the resolved tenant.
+- Explicit tenant selection is respected through `X-Tenant-ID`.
+- Explicit tenant selection without an active membership is rejected.
+
+### Testing
+
+Extended:
+
+- `apps/tenants/tests/test_company_api.py`
+
+Company API tests cover:
+
+- Tenant-isolated company listing.
+- Cross-tenant company access rejection.
+- Company creation within the current tenant.
+- Protection against client-side tenant override.
+- Company update within the current tenant.
+- Cross-tenant update rejection.
+- Company deletion within the current tenant.
+- Cross-tenant deletion rejection.
+- Explicit tenant selection for company listing.
+- Rejection of explicit tenant selection without membership.
+
+### Company API Test Result
+
+Command:
+
+```text
+python manage.py test apps.tenants.tests.test_company_api
+
+Result:
+
+Found 10 test(s).
+
+Ran 10 tests in 19.142s
+
+OK
+
+Full Tenant Test Suite
+
+Command:
+
+```text
+python manage.py test apps.tenants.tests
+
+Result:
+
+Found 39 test(s).
+
+Ran 39 tests in 45.811s
+
+OK
+
+
+Result
+
+Company APIs are now strictly isolated by the resolved tenant context.
+
+Cross-tenant reads, updates, and deletes are rejected, and newly created companies are always assigned to the server-resolved tenant.
+
+The complete tenant test suite passes successfully.
+
+
