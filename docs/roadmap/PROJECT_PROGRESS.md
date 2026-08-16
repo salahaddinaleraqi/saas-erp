@@ -808,4 +808,34 @@ Cross-tenant reads, updates, and deletes are rejected, and newly created compani
 
 The complete tenant test suite passes successfully.
 
+---
 
+### Stage 3.6.6 — Tenant Test Suite
+
+**Status:** ✅ Completed
+
+### Objective
+
+Execute the complete tenant test suite to verify that tenant selection, tenant context, permissions, and Company API tenant isolation continue to work together without regressions.
+
+### Testing
+
+Command:
+
+```text
+python manage.py test apps.tenants.tests
+
+Result:
+
+Found 39 test(s).
+.......................................
+
+Ran 39 tests in 45.811s
+
+OK
+
+Result
+
+All tenant-related tests pass successfully.
+
+The complete tenant test suite confirms that the tenant context, explicit tenant selection, tenant-aware permissions, and Company API tenant isolation work together without regression.
