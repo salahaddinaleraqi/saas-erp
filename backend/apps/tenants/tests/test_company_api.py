@@ -63,10 +63,10 @@ class CompanyListAPITestCase(APITestCase):
             status.HTTP_200_OK,
         )
 
-        access_token = response.data["access"]
+        self.access_token = response.data["access"]
 
         self.client.credentials(
-            HTTP_AUTHORIZATION=f"Bearer {access_token}"
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}"
         )
 
     def test_authenticated_user_only_sees_companies_of_current_tenant(self):
@@ -289,4 +289,61 @@ class CompanyListAPITestCase(APITestCase):
             ).exists()
         )
 
-    
+    def test_authenticated_user_can_select_tenant_and_see_its_companies(self):
+        Membership.objects.create(
+            user=self.user,
+            tenant=self.tenant_b,
+        )
+
+        self.authenticate()
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}",
+            HTTP_X_TENANT_ID=str(self.tenant_b.id),
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        companies = response.data["data"]
+
+        company_ids = {
+            item["id"]
+            for item in companies
+        }
+
+        self.assertEqual(
+            company_ids,
+            {
+                str(self.company_b1.id),
+            },
+        )
+
+        self.assertNotIn(
+            str(self.company_a1.id),
+            company_ids,
+        )
+
+        self.assertNotIn(
+            str(self.company_a2.id),
+            company_ids,
+        )
+
+    def test_authenticated_user_cannot_select_tenant_without_membership(self):
+        self.authenticate()
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}",
+            HTTP_X_TENANT_ID=str(self.tenant_b.id),
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )

@@ -122,3 +122,123 @@ class TenantContextTestCase(TestCase):
         self.assertIsNone(second_request.membership)
         self.assertIsNone(second_request.tenant)
         self.assertIsNone(second_request.company)
+
+    def test_context_does_not_implicitly_select_first_tenant_when_user_has_multiple_memberships(self):
+        tenant_a = Tenant.objects.create(
+            name="Tenant A",
+            slug="tenant-a",
+        )
+
+        tenant_b = Tenant.objects.create(
+            name="Tenant B",
+            slug="tenant-b",
+        )
+
+        Membership.objects.create(
+            user=self.user,
+            tenant=tenant_a,
+        )
+
+        Membership.objects.create(
+            user=self.user,
+            tenant=tenant_b,
+        )
+
+        request = type("Request", (), {})()
+        request.user = self.user
+
+        TenantContext.resolve(request)
+
+        self.assertIsNone(request.membership)
+        self.assertIsNone(request.tenant)
+        self.assertIsNone(request.company)
+
+    def test_context_resolves_explicitly_selected_tenant(self):
+        tenant_a = Tenant.objects.create(
+            name="Tenant A",
+            slug="tenant-a",
+        )
+
+        tenant_b = Tenant.objects.create(
+            name="Tenant B",
+            slug="tenant-b",
+        )
+
+        membership_a = Membership.objects.create(
+            user=self.user,
+            tenant=tenant_a,
+        )
+
+        Membership.objects.create(
+            user=self.user,
+            tenant=tenant_b,
+        )
+
+        request = type("Request", (), {})()
+        request.user = self.user
+        request.tenant_id = str(tenant_a.id)
+
+        TenantContext.resolve(request)
+
+        self.assertIsNotNone(request.membership)
+        self.assertIsNotNone(request.tenant)
+
+        self.assertEqual(
+            request.membership,
+            membership_a,
+        )
+
+        self.assertEqual(
+            request.tenant,
+            tenant_a,
+        )
+
+    def test_context_rejects_explicitly_selected_tenant_without_membership(self):
+        tenant_a = Tenant.objects.create(
+            name="Tenant A",
+            slug="tenant-a",
+        )
+
+        tenant_b = Tenant.objects.create(
+            name="Tenant B",
+            slug="tenant-b",
+        )
+
+        Membership.objects.create(
+            user=self.user,
+            tenant=tenant_a,
+        )
+
+        request = type("Request", (), {})()
+        request.user = self.user
+        request.tenant_id = str(tenant_b.id)
+
+        TenantContext.resolve(request)
+
+        self.assertIsNone(request.membership)
+        self.assertIsNone(request.tenant)
+        self.assertIsNone(request.company)
+
+    def test_context_rejects_explicitly_selected_inactive_tenant(self):
+        tenant_a = Tenant.objects.create(
+            name="Tenant A",
+            slug="tenant-a",
+        )
+
+        Membership.objects.create(
+            user=self.user,
+            tenant=tenant_a,
+        )
+
+        tenant_a.is_active = False
+        tenant_a.save(update_fields=["is_active"])
+
+        request = type("Request", (), {})()
+        request.user = self.user
+        request.tenant_id = str(tenant_a.id)
+
+        TenantContext.resolve(request)
+
+        self.assertIsNone(request.membership)
+        self.assertIsNone(request.tenant)
+        self.assertIsNone(request.company)

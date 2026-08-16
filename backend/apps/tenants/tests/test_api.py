@@ -37,10 +37,10 @@ class TenantContextAPITestCase(APITestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        access_token = response.data["access"]
+        self.access_token = response.data["access"]
 
         self.client.credentials(
-            HTTP_AUTHORIZATION=f"Bearer {access_token}"
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}"
         )
 
     def test_authenticated_user_with_active_membership_can_access_context(self):
@@ -94,3 +94,119 @@ class TenantContextAPITestCase(APITestCase):
         response = self.client.get(self.url)
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_authenticated_user_with_multiple_tenants_requires_tenant_header(self):
+        tenant_b = Tenant.objects.create(
+            name="Second Tenant",
+            slug="second-tenant",
+        )
+
+        Membership.objects.create(
+            user=self.user,
+            tenant=tenant_b,
+        )
+
+        self.authenticate()
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_authenticated_user_can_select_tenant_with_header(self):
+        tenant_b = Tenant.objects.create(
+            name="Second Tenant",
+            slug="second-tenant",
+        )
+
+        membership_b = Membership.objects.create(
+            user=self.user,
+            tenant=tenant_b,
+        )
+
+        self.authenticate()
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}",
+            HTTP_X_TENANT_ID=str(tenant_b.id),
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_200_OK,
+        )
+
+        self.assertEqual(
+            response.data["data"]["membership"],
+            str(membership_b.id),
+        )
+
+        self.assertEqual(
+            response.data["data"]["tenant"]["id"],
+            str(tenant_b.id),
+        )
+
+    def test_authenticated_user_cannot_select_tenant_without_membership(self):
+        tenant_b = Tenant.objects.create(
+            name="Second Tenant",
+            slug="second-tenant",
+        )
+
+        self.authenticate()
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}",
+            HTTP_X_TENANT_ID=str(tenant_b.id),
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_authenticated_user_cannot_select_inactive_tenant(self):
+        tenant_b = Tenant.objects.create(
+            name="Inactive Tenant",
+            slug="inactive-tenant",
+            is_active=False,
+        )
+
+        Membership.objects.create(
+            user=self.user,
+            tenant=tenant_b,
+        )
+
+        self.authenticate()
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}",
+            HTTP_X_TENANT_ID=str(tenant_b.id),
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
+
+    def test_authenticated_user_cannot_select_nonexistent_tenant(self):
+        self.authenticate()
+
+        self.client.credentials(
+            HTTP_AUTHORIZATION=f"Bearer {self.access_token}",
+            HTTP_X_TENANT_ID="00000000-0000-0000-0000-000000000000",
+        )
+
+        response = self.client.get(self.url)
+
+        self.assertEqual(
+            response.status_code,
+            status.HTTP_403_FORBIDDEN,
+        )
